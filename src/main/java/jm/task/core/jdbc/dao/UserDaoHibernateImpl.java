@@ -4,13 +4,12 @@ import jm.task.core.jdbc.model.User;
 import jm.task.core.jdbc.util.Util;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
-import sun.security.smartcardio.SunPCSC;
 
 import javax.persistence.Query;
 import java.util.List;
 
 public class UserDaoHibernateImpl implements UserDao {
-    SessionFactory sF = Util.getFactory();
+    private final static SessionFactory sF = Util.getFactory();
     public UserDaoHibernateImpl() {
     }
 
@@ -20,12 +19,13 @@ public class UserDaoHibernateImpl implements UserDao {
 
          Session session = sF.openSession();
          session.beginTransaction();
-         session.createSQLQuery("CREATE TABLE users " +
+         session.createSQLQuery("CREATE TABLE IF NOT EXISTS users " +
                  "(id INTEGER not NULL auto_increment primary key, " +
                  "name VARCHAR(255) not null , " +
                  "lastName VARCHAR(255) not null , " +
-                 "age INTEGER)");
+                 "age INTEGER)").executeUpdate();
          session.getTransaction().commit();
+        System.out.println("Таблица создана");
          session.close();
     }
 
@@ -33,18 +33,19 @@ public class UserDaoHibernateImpl implements UserDao {
     public void dropUsersTable() {
         Session session = sF.openSession();
         session.beginTransaction();
-        session.createSQLQuery("drop table User").executeUpdate();
+        session.createSQLQuery("DROP TABLE IF EXISTS users").executeUpdate();
         session.getTransaction().commit();
+        System.out.println("Таблица не существует.");
         session.close();
     }
 
     @Override
     public void saveUser(String name, String lastName, byte age) {
-        User user = new User(name, lastName, age);
         Session session = sF.openSession();
         session.beginTransaction();
-        session.save(user);
+        session.save(new User(name, lastName, age));
         session.getTransaction().commit();
+        System.out.println("Пользователь сохранент в БД");
         session.close();
     }
 
@@ -52,7 +53,12 @@ public class UserDaoHibernateImpl implements UserDao {
     public void removeUserById(long id) {
         Session session = sF.openSession();
         session.beginTransaction();
-        session.createQuery("delete from User where id =" + id).executeUpdate();
+        User user =  session.load(User.class, id);
+
+        if (user != null) {
+            session.delete(user);
+            System.out.println("User удален.");
+        }
         session.getTransaction().commit();
         session.close();
 
@@ -72,8 +78,14 @@ public class UserDaoHibernateImpl implements UserDao {
     public void cleanUsersTable() {
         Session session = sF.openSession();
         session.beginTransaction();
-        session.createQuery("delete from User").executeUpdate();
-        session.getTransaction().commit();
-        session.close();
+        try{
+            session.createQuery("DELETE FROM User").executeUpdate();
+            session.getTransaction().commit();
+            System.out.println("Таблица была очищена");
+        }catch (Exception e){
+            System.out.println("Таблица не очищена");
+        }finally {
+            session.close();
+        }
     }
 }
